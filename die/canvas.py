@@ -130,13 +130,13 @@ class shape:
 
 #die_width =114
 die_perimeter = 8*25.4
-core_number =1
-core_width = 120
+core_number =2
+core_width = 60
 material ='GF'
 in_dia = 6.35
 Z=64
 
-for diameter in [36]:
+for diameter in [46]:
 
     c  =canvas(core_width*core_number, die_perimeter,core_number,core_width, diameter,Z)
     c.set_grid()
