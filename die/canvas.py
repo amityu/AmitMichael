@@ -131,18 +131,18 @@ class shape:
 #die_width =114
 die_perimeter = 8*25.4
 core_number =1
-core_width = 124
+core_width = 120
 material ='GF'
 in_dia = 6.35
 Z=64
 
-for diameter in [15]:
+for diameter in [36]:
 
     c  =canvas(core_width*core_number, die_perimeter,core_number,core_width, diameter,Z)
     c.set_grid()
-    #c.save_canvas(OUTPUT_PATH + "D%dZ%d-C%dX%d%s28.pdf"%(diameter*100,Z,core_number,core_width,material))
+    c.save_canvas(OUTPUT_PATH + "D%dZ%d-C%dX%d%s28.pdf"%(diameter*100,Z,core_number,core_width,material))
     #c.backslit(OUTPUT_PATH + "BS_D%dZ%d-C%dX%d%s.pdf"%(diameter*100,Z,core_number,core_width,material))
-    c.ring(in_dia,OUTPUT_PATH + "R%dd%dZ%d-C%dX%d%s.pdf"%(diameter*100,in_dia*100,Z,core_number,core_width,material))
+    #c.ring(in_dia,OUTPUT_PATH + "R%dd%dZ%d-C%dX%d%s.pdf"%(diameter*100,in_dia*100,Z,core_number,core_width,material))
 
 
 
@@ -161,3 +161,5 @@ for diameter in [15]:
 
 
 
+
+#%%
