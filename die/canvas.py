@@ -36,9 +36,9 @@ class canvas:
         in_distance = res.x[0]  #distance of float number of discs
         inbetween = (self.cores_width - 2 * edge_distance - number_of_discs * d) / (number_of_discs - 1)
         '''
-        minimum_inbetween_cores = 4
+        minimum_inbetween_cores = 2.5
         minimum_inbetween_discs = 2.5
-        number_of_discs = int((self.cores_width -minimum_inbetween_cores+minimum_inbetween_discs)/(self.diameter + minimum_inbetween_discs))
+        number_of_discs = int((self.cores_width - minimum_inbetween_cores-minimum_inbetween_discs)/(self.diameter + minimum_inbetween_discs))
         edge_distance = (self.cores_width + minimum_inbetween_discs - number_of_discs*(self.diameter +minimum_inbetween_discs))/2
         self.properties = 'Circle diameter %.2f\n'%d
         self.properties += 'cylinder perimeter %.2f mm\n'%self.cylinder_perimeter
@@ -84,7 +84,7 @@ class canvas:
     def save_canvas(self,file_name):
         pdf = FPDF(format = (self.cores_width*self.cores_number,self.cylinder_perimeter))
         pdf.add_page();
-        pdf.set_font('Arial', 'B', 12);
+        pdf.set_font('helvetica', 'B', 12);
         pdf.multi_cell(100, 15, self.properties, border='L', align ='L');
         pdf.add_page()
         for (x,y) in self.grid:
@@ -130,13 +130,13 @@ class shape:
 
 #die_width =114
 die_perimeter = 8*25.4
-core_number =1
-core_width = 135
+core_number =2
+core_width = 68
 material ='GF'
 in_dia = 6.35
 Z=64
 
-for diameter in [30]:
+for diameter in [65]:
 
     c  =canvas(core_width*core_number, die_perimeter,core_number,core_width, diameter,Z)
     c.set_grid()
