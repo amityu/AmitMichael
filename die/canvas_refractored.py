@@ -248,12 +248,12 @@ def build_output_file_name(diameter, z, cores_number, core_width, material):
 
 if __name__ == "__main__":
     die_perimeter = 8 * MM_PER_INCH
-    core_number = 1
-    core_width = 138
+    core_number = 2
+    core_width = 68
     material = "GF"
     z = 64
 
-    for diameter in [65]:
+    for diameter in [29]:
         canvas = RotaryDieCanvas(
             die_width=core_width * core_number,
             cylinder_perimeter=die_perimeter,
