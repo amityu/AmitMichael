@@ -6,9 +6,10 @@ from fpdf import FPDF
 OUTPUT_DIR = Path("../resources")
 
 MM_PER_INCH = 25.4
-DEFAULT_MIN_GAP_BETWEEN_CORES = 2.5
-DEFAULT_MIN_GAP_BETWEEN_CIRCLES = 2.5
-TWO_CORE_EDGE_OFFSET = 1.5
+DEFAULT_MIN_GAP_BETWEEN_CORES = 5
+DEFAULT_MIN_GAP_BETWEEN_CIRCLES = 1.5
+DEFAULT_MAX_GAP_BETWEEN_CORES = 5  # mm, None = no limit
+TWO_CORE_EDGE_OFFSET = 0
 
 PT_TO_MM = MM_PER_INCH / 72
 MAX_DETAILS_FONT_SIZE = 12
@@ -27,7 +28,14 @@ class RotaryDieCanvas:
         z=64,
         min_gap_between_cores=DEFAULT_MIN_GAP_BETWEEN_CORES,
         min_gap_between_circles=DEFAULT_MIN_GAP_BETWEEN_CIRCLES,
+        max_gap_between_cores=DEFAULT_MAX_GAP_BETWEEN_CORES,
     ):
+        if max_gap_between_cores is not None and max_gap_between_cores < min_gap_between_cores:
+            raise ValueError(
+                f"max_gap_between_cores ({max_gap_between_cores}) must be >= "
+                f"min_gap_between_cores ({min_gap_between_cores})"
+            )
+
         self.die_width = die_width
         self.cylinder_perimeter = cylinder_perimeter
         self.cores_number = cores_number
@@ -36,6 +44,7 @@ class RotaryDieCanvas:
         self.z = z
         self.min_gap_between_cores = min_gap_between_cores
         self.min_gap_between_circles = min_gap_between_circles
+        self.max_gap_between_cores = max_gap_between_cores
 
         self.grid = []
         self.properties = ""
@@ -56,13 +65,16 @@ class RotaryDieCanvas:
 
         circles_per_core_line = self._calculate_circles_per_core_line()
         edge_distance = self._calculate_edge_distance(circles_per_core_line)
+        circles_gap_between_cores = self._calculate_circles_gap_between_cores(edge_distance)
         y_gap = self._calculate_y_gap()
 
         y = y_gap / 2
 
         while y < self.cylinder_perimeter:
             for core_index in range(self.cores_number):
-                x = self._first_circle_x(core_index, edge_distance)
+                x = self._first_circle_x(
+                    core_index, circles_per_core_line, circles_gap_between_cores
+                )
 
                 for _ in range(circles_per_core_line):
                     self.grid.append((x, y))
@@ -70,7 +82,9 @@ class RotaryDieCanvas:
 
             y += y_gap
 
-        self.properties = self._build_properties(circles_per_core_line, edge_distance)
+        self.properties = self._build_properties(
+            circles_per_core_line, edge_distance, circles_gap_between_cores
+        )
 
     def save_circle_grid_pdf(self, file_name):
         self._ensure_grid_is_ready()
@@ -102,7 +116,7 @@ class RotaryDieCanvas:
     def _calculate_circles_per_core_line(self):
         available_width = (
             self.core_width
-            - self.gap_between_cores
+            - self.gap_between_cores / 2
             - self.min_gap_between_circles
         )
 
@@ -125,18 +139,44 @@ class RotaryDieCanvas:
 
         return self.cylinder_perimeter / rows_count
 
-    def _first_circle_x(self, core_index, edge_distance):
-        x = edge_distance + self.diameter / 2 + core_index * self.core_width
+    def _calculate_circles_gap_between_cores(self, edge_distance):
+        """Distance from the rightmost circle edge of one core to the leftmost
+        circle edge of the next core, capped by max_gap_between_cores."""
+        if self.cores_number == 1:
+            return 0
 
-        if self.cores_number == 2 and core_index == 0:
-            x -= edge_distance - TWO_CORE_EDGE_OFFSET
+        if self.cores_number == 2:
+            # Each core's circles are pushed outward to TWO_CORE_EDGE_OFFSET from the die edge.
+            natural_gap = 4 * edge_distance - 2 * TWO_CORE_EDGE_OFFSET
+        else:
+            natural_gap = 2 * edge_distance
 
-        if self.cores_number == 2 and core_index == 1:
-            x += edge_distance - TWO_CORE_EDGE_OFFSET
+        if self.max_gap_between_cores is None:
+            return natural_gap
 
-        return x
+        return min(natural_gap, self.max_gap_between_cores)
 
-    def _build_properties(self, circles_per_core_line, edge_distance):
+    def _circles_group_width(self, circles_per_core_line):
+        return (
+            circles_per_core_line * (self.diameter + self.min_gap_between_circles)
+            - self.min_gap_between_circles
+        )
+
+    def _first_circle_x(self, core_index, circles_per_core_line, circles_gap_between_cores):
+        group_width = self._circles_group_width(circles_per_core_line)
+        total_width = (
+            self.cores_number * group_width
+            + (self.cores_number - 1) * circles_gap_between_cores
+        )
+        start_x = (self.pdf_size[0] - total_width) / 2
+
+        return (
+            start_x
+            + core_index * (group_width + circles_gap_between_cores)
+            + self.diameter / 2
+        )
+
+    def _build_properties(self, circles_per_core_line, edge_distance, circles_gap_between_cores):
         total_circles = len(self.grid)
         efficiency = (circles_per_core_line / self.core_width) * 100
         length_per_1000_per_core = self.cylinder_perimeter / (
@@ -153,16 +193,23 @@ class RotaryDieCanvas:
             f"Edge distance = {edge_distance:.2f} mm\n"
             f"In between cores distance = {self.gap_between_cores:.2f} mm\n"
             f"In between circles distance = {self.min_gap_between_circles:.2f} mm\n"
+            f"Circles distance between cores = {circles_gap_between_cores:.2f} mm\n"
             f"Leftmost to rightmost circle edge = {circles_span:.2f} mm\n"
             f"Number of circles = {total_circles}\n"
             f"Length of 1000 pcs/core = {length_per_1000_per_core:.2f} m\n"
             f"Precision = {efficiency:.2f}\n"
         )
 
+        if self.max_gap_between_cores is not None:
+            properties += (
+                f"Max circles distance between cores = "
+                f"{self.max_gap_between_cores:.2f} mm\n"
+            )
+
         if self.cores_number == 2:
             properties += (
                 f"2 cores, circles were offset by "
-                f"{edge_distance - TWO_CORE_EDGE_OFFSET:.2f} mm\n"
+                f"{(circles_gap_between_cores - 2 * edge_distance) / 2:.2f} mm\n"
             )
 
         return properties
@@ -249,7 +296,7 @@ def build_output_file_name(diameter, z, cores_number, core_width, material):
 if __name__ == "__main__":
     die_perimeter = 8 * MM_PER_INCH
     core_number = 2
-    core_width = 68
+    core_width = 65
     material = "GF"
     z = 64
 
